@@ -14,8 +14,8 @@ import time
 import cv2
 import math
 from urllib.request import urlopen
-
-host = 'http://10.132.148.149:8081/'
+ipaddress = "10.132.177.18"
+host = 'http://'+ipaddress+':8081/'
 url = host + 'video'
 
 # construct the argument parse and parse the arguments
@@ -28,7 +28,7 @@ ap.add_argument("-p2", "--prototxt2", required=True,
 	help="path to Caffe 'deploy' prototxt file")
 ap.add_argument("-m2", "--model2", required=True,
 	help="path to Caffe pre-trained model")
-ap.add_argument("--source", required=True, 
+ap.add_argument("--source", required=True,
 	help="Source of video stream (webcam/host)")
 ap.add_argument("-c", "--confidence", type=float, default=0.2,
 	help="minimum probability to filter weak detections")
@@ -87,7 +87,7 @@ def SendCommand(ssh, command, pw='password'):
     #print('\nstout:',stdout.read())
     #print('\nsterr:',stderr.read())
 
-myssh = Connect(ip='10.132.148.149')
+myssh = Connect(ip=ipaddress)
 objects = ct
 # loop over the frames from the video stream
 
@@ -147,6 +147,7 @@ while True:
 			OGStartY = startY
 			OGEndX = endX
 			OGEndY = endY
+			#print(rects)
 			#y = startY - 15 if startY - 15 > 15 else startY + 15
 			#cv2.putText(frame, label, (startX, y),
 				#cv2.FONT_HERSHEY_SIMPLEX, 0.5, COLORS[idx], 2)
@@ -154,6 +155,7 @@ while True:
 
 			if min != 999999999999:
 				minBodyID = ct.getMinUpdate(rects,min)
+				#if minBodyID[0] != "ERROR":
 				print(minBodyID)
 				if minBodyID[0] != "ERROR":
 					for i in range(0, detections2.shape[2]):
@@ -180,13 +182,13 @@ while True:
 						cv2.putText(frame, text, (startX, y),
 							cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 2)
 						#flag = True
-						if  min == minBodyID[0] and startX > OGStartX and endX < OGEndX and startY > OGStartY and endY < OGEndY:
+						if  min == minBodyID[0] and startX > OGStartX and endX < OGEndX and startY+50 > OGStartY and endY < OGEndY:
 						#	print("inside")
 							print("false2")
 							flag = False
 				else:
 					print("False1")
-					flag = False
+					'''flag = False
 					for i in range(0, detections2.shape[2]):
 						# extract the confidence (i.e., probability) associated with the
 						# prediction
@@ -209,7 +211,7 @@ while True:
 						cv2.rectangle(frame, (startX, startY), (endX, endY),
 							(0, 0, 255), 2)
 						cv2.putText(frame, text, (startX, y),
-							cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 2)
+							cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 2)'''
 		if flag and min != 999999999999:
 			milli_sec = int(round(time.time() * 1000))
 			if milli_sec - initial_milli_sec >= 100:

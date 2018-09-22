@@ -9,7 +9,7 @@ class CentroidTracker():
 	minRow = 0
 	minCol = 0
 
-	def __init__(self, maxDisappeared=25):
+	def __init__(self, maxDisappeared=10):
 		# initialize the next unique object ID along with two ordered
 		# dictionaries used to keep track of mapping a given object
 		# ID to its centroid and number of consecutive frames it has
@@ -89,10 +89,9 @@ class CentroidTracker():
 			minID = objectID
 			minRow = inputCentroids[0][0]
 			minCol = inputCentroids[0][1]
-		if minID == min:
-			return [minID, minRow, minCol]
-		else:
-			return ["ERROR","ERROR","ERROR"]
+			if minID == min:
+				return [minID, minRow, minCol]
+		return ["ERROR",str(min),str(minID)+" | "+str(minRow)+" | "+str(minCol)]
 
 	def update(self, rects):
 		# check to see if the list of input bounding box rectangles
@@ -100,7 +99,7 @@ class CentroidTracker():
 		if len(rects) == 0:
 			# loop over any existing tracked objects and mark them
 			# as disappeared
-			for objectID in self.disappeared.keys():
+			for objectID in list(self.disappeared.keys()):
 				self.disappeared[objectID] += 1
 
 				# if we have reached a maximum number of consecutive
