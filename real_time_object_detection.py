@@ -14,28 +14,34 @@ import time
 import cv2
 import math
 from urllib.request import urlopen
-ipaddress = "10.132.177.18"
-host = 'http://'+ipaddress+':8081/'
-url = host + 'video'
+
+
+
+#url = host + 'video'
 
 # construct the argument parse and parse the arguments
 ap = argparse.ArgumentParser()
-ap.add_argument("-p", "--prototxt", required=True,
+'''ap.add_argument("-p", "--prototxt", required=True,
 	help="path to Caffe 'deploy' prototxt file")
 ap.add_argument("-m", "--model", required=True,
 	help="path to Caffe pre-trained model")
 ap.add_argument("-p2", "--prototxt2", required=True,
 	help="path to Caffe 'deploy' prototxt file")
 ap.add_argument("-m2", "--model2", required=True,
-	help="path to Caffe pre-trained model")
+	help="path to Caffe pre-trained model")'''
 ap.add_argument("--source", required=True,
 	help="Source of video stream (webcam/host)")
 ap.add_argument("-c", "--confidence", type=float, default=0.2,
 	help="minimum probability to filter weak detections")
+ap.add_argument("-s", "--skip-frames", type=int, default=30,
+	help="# of skip frames between detections")
+ap.add_argument("--ip", required=True,
+	help="The IP Address")
 args = vars(ap.parse_args())
 #print(args)
 
-
+ipaddress = args["ip"]
+url = 'http://'+ipaddress+'/html/cam_pic_new.php?'
 
 ct = CentroidTracker()
 (H, W) = (None, None)
@@ -53,10 +59,9 @@ COLORS = np.random.uniform(0, 255, size=(len(CLASSES), 3))
 
 # load our serialized model from disk
 print("[INFO] loading model...")
-net = cv2.dnn.readNetFromCaffe(args["prototxt"], args["model"])
-net2 = cv2.dnn.readNetFromCaffe(args["prototxt2"], args["model2"])
+net = cv2.dnn.readNetFromCaffe("MobileNetSSD_deploy.prototxt.txt", "MobileNetSSD_deploy.caffemodel")
+net2 = cv2.dnn.readNetFromCaffe("deploy.prototxt.txt", "res10_300x300_ssd_iter_140000.caffemodel")
 
-initial_milli_sec = int(round(time.time() * 1000))
 # initialize the video stream, allow the cammera sensor to warmup,
 # and initialize the FPS counter
 print("[INFO] starting video stream...")
@@ -65,7 +70,9 @@ if args["source"] == "webcam":
 	vs = VideoStream(src=0).start()
 elif args["source"] == "edison":
 	vs = VideoStream(src=url).start()
+
 time.sleep(2.0)
+totalFrames = 0
 fps = FPS().start()
 
 def Connect(ip, username='pi', pw='davidisg00d'):
@@ -89,6 +96,24 @@ def SendCommand(ssh, command, pw='password'):
 
 myssh = Connect(ip=ipaddress)
 objects = ct
+SendCommand(myssh, command=('python ~/servomotor.py 90'))
+SendCommand(myssh, command=('python ~/blink.py OFF'))
+degree = 90
+isMoving = False
+prev = 0
+testObjects = 0
+timeToReset = 500
+blink = "OFF"
+OGStartX = 0
+OGStartY = 0
+OGEndX = 0
+OGEndY = 0
+wasFace = 0
+wasBody = 0
+prevID = 999999999999
+wasPrevID = 0
+prevRowCentroid = 0
+prevColCentroid = 0
 # loop over the frames from the video stream
 
 min = 999999999999
@@ -97,152 +122,172 @@ while True:
 	# grab the frame from the threaded video stream and resize it
 	# to have a maximum width of 400 pixels
 	frame = vs.read()
-	frame = imutils.resize(frame, width=400)
+	print(frame)
+	frame = imutils.resize(frame, width=800)
+	if totalFrames % args["skip_frames"] == 0:
+		#if W is None or H is None:
+		#	(H, W) = frame.shape[:2]
 
-	#if W is None or H is None:
-	#	(H, W) = frame.shape[:2]
+		# grab the frame dimensions and convert it to a blob
+		(h, w) = frame.shape[:2]
+		blob = cv2.dnn.blobFromImage(cv2.resize(frame, (300, 300)),
+			0.007843, (300, 300), 127.5)
+		blob2 = cv2.dnn.blobFromImage(cv2.resize(frame, (600, 600)), 1.0,
+			(600, 600), (104.0, 177.0, 123.0))
+		#print(blob)
+		# pass the blob through the network and obtain the detections and
+		# predictions
+		net.setInput(blob)
+		detections = net.forward()
+		net2.setInput(blob2)
+		detections2 = net2.forward()
+		#print(detections2)
+		rects = []
+		#print(detections)
+		# loop over the detections
+		#test = np.arange(0, detections.shape[2])
+		#print(detections.shape[2])print
+		if detections.shape[2] == 0:
+			testObjects+=1
+			timeToReset-=1
+		if testObjects > 50:
+			testObjects = 0
+			if blink != "OFF":
+				print("1")
+				blink = "OFF"
+				SendCommand(myssh, command=('python ~/blink.py OFF'))
+		if timeToReset < 0:
+			timeToReset = 500
+			SendCommand(myssh, command=('python ~/servomotor.py 90'))
 
-	# grab the frame dimensions and convert it to a blob
-	(h, w) = frame.shape[:2]
-	blob = cv2.dnn.blobFromImage(cv2.resize(frame, (300, 300)),
-		0.007843, (300, 300), 127.5)
-	blob2 = cv2.dnn.blobFromImage(cv2.resize(frame, (300, 300)), 1.0,
-		(300, 300), (104.0, 177.0, 123.0))
-	#print(blob)
-	# pass the blob through the network and obtain the detections and
-	# predictions
-	net.setInput(blob)
-	detections = net.forward()
-	net2.setInput(blob2)
-	detections2 = net2.forward()
-	#print(detections2)
-	rects = []
-	#print(detections)
-	# loop over the detections
-	for i in np.arange(0, detections.shape[2]):
-		#print(detections.shape)
-		# extract the confidence (i.e., probability) associated with
-		# the prediction
-		confidence = detections[0, 0, i, 2]
 		flag = True
-		# filter out weak detections by ensuring the `confidence` is
-		# greater than the minimum confidence
-		if confidence > args["confidence"]:
-			# extract the index of the class label from the
-			# `detections`, then compute the (x, y)-coordinates of
-			# the bounding box for the object
-			idx = int(detections[0, 0, i, 1])
-			if CLASSES[idx] in IGNORE:
-				continue
-			box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
-			rects.append(box.astype("int"))
-			(startX, startY, endX, endY) = box.astype("int")
-			#print("TX:"+str(targetX)+"-TY:"+str(targetY))
-			# draw the prediction on the frame
-			#label = "{}: {:.2f}%".format(CLASSES[idx],
-				#confidence * 100)
-			cv2.rectangle(frame, (startX, startY), (endX, endY),
-				(0, 255, 0), 2)
-			OGStartX = startX
-			OGStartY = startY
-			OGEndX = endX
-			OGEndY = endY
-			#print(rects)
-			#y = startY - 15 if startY - 15 > 15 else startY + 15
-			#cv2.putText(frame, label, (startX, y),
-				#cv2.FONT_HERSHEY_SIMPLEX, 0.5, COLORS[idx], 2)
-			#FACE DETECTION
+		#print("_______________________________")
+		for i in np.arange(0, detections.shape[2]):
+			#print(detections.shape)
+			# extract the confidence (i.e., probability) associated with
+			# the prediction
+			confidence = detections[0, 0, i, 2]
+			# filter out weak detections by ensuring the `confidence` is
+			# greater than the minimum confidence
+			if confidence > args["confidence"]:
+				# extract the index of the class label from the
+				# `detections`, then compute the (x, y)-coordinates of
+				# the bounding box for the object
+				idx = int(detections[0, 0, i, 1])
+				if CLASSES[idx] in IGNORE:
+					continue
+				box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+				rects.append(box.astype("int"))
+				(startX, startY, endX, endY) = box.astype("int")
+				#print("TX:"+str(targetX)+"-TY:"+str(targetY))
+				# draw the prediction on the frame
+				#label = "{}: {:.2f}%".format(CLASSES[idx],
+					#confidence * 100)
+				cv2.rectangle(frame, (startX, startY), (endX, endY),
+					(0, 255, 0), 2)
+				#print(str(startX)+", "+ str(startY)+", "+ str(endX)+","+ str(endY))
 
-			if min != 999999999999:
-				minBodyID = ct.getMinUpdate(rects,min)
-				#if minBodyID[0] != "ERROR":
-				print(minBodyID)
-				if minBodyID[0] != "ERROR":
-					for i in range(0, detections2.shape[2]):
-						# extract the confidence (i.e., probability) associated with the
-						# prediction
-						confidence = detections2[0, 0, i, 2]
+		# update our centroid tracker using the computed set of bounding
+		# box rectangles
 
-						# filter out weak detections by ensuring the `confidence` is
-						# greater than the minimum confidence
-						if confidence < args["confidence"]:
-							continue
 
-						# compute the (x, y)-coordinates of the bounding box for the
-						# object
-						box = detections2[0, 0, i, 3:7] * np.array([w, h, w, h])
-						(startX, startY, endX, endY) = box.astype("int")
 
-						# draw the bounding box of the face along with the associated
-						# probability
-						text = "{:.2f}%".format(confidence * 100)
-						y = startY - 10 if startY - 10 > 10 else startY + 10
-						cv2.rectangle(frame, (startX, startY), (endX, endY),
-							(0, 0, 255), 2)
-						cv2.putText(frame, text, (startX, y),
-							cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 2)
-						#flag = True
-						if  min == minBodyID[0] and startX > OGStartX and endX < OGEndX and startY+50 > OGStartY and endY < OGEndY:
-						#	print("inside")
-							print("false2")
-							flag = False
-				else:
-					print("False1")
-					'''flag = False
-					for i in range(0, detections2.shape[2]):
-						# extract the confidence (i.e., probability) associated with the
-						# prediction
-						confidence = detections2[0, 0, i, 2]
 
-						# filter out weak detections by ensuring the `confidence` is
-						# greater than the minimum confidence
-						if confidence < args["confidence"]:
-							continue
+		objects = ct.update(rects)
+		min = 999999999999
+		# loop over the tracked objects
+		for (objectID, centroid) in objects.items():
+			#print(objectID)
+			if objectID < min:
+				min = objectID
+				prevRowCentroid = centroid[0]
+				prevColCentroid = centroid[1]
+			# draw both the ID of the object and the centroid of the
+			# object on the output frame
+			text = "ID {}".format(objectID)
+			cv2.putText(frame, text, (centroid[0] - 10, centroid[1] - 10),
+				cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+			#print("CENT::"+str(centroid[0])+":"+str(centroid[1])+"-"+str(objectID))
+			cv2.circle(frame, (centroid[0], centroid[1]), 4, (0, 255, 0), -1)
 
-						# compute the (x, y)-coordinates of the bounding box for the
-						# object
-						box = detections2[0, 0, i, 3:7] * np.array([w, h, w, h])
-						(startX, startY, endX, endY) = box.astype("int")
 
-						# draw the bounding box of the face along with the associated
-						# probability
-						text = "{:.2f}%".format(confidence * 100)
-						y = startY - 10 if startY - 10 > 10 else startY + 10
-						cv2.rectangle(frame, (startX, startY), (endX, endY),
-							(0, 0, 255), 2)
-						cv2.putText(frame, text, (startX, y),
-							cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 2)'''
-		if flag and min != 999999999999:
-			milli_sec = int(round(time.time() * 1000))
-			if milli_sec - initial_milli_sec >= 100:
-				#print("1000")
-				initial_milli_sec = int(round(time.time() * 1000))
-				xDist = 180 - ((OGEndX - OGStartX)/2 + OGStartX)*180/400
-				#xDist = (str(OGStartX)+":"+str(OGEndX)+"->"+str((OGEndX - OGStartX)/2))
-				#print(xDist)
+
+
+		if min != 999999999999 and len(rects) > 0:
+			wasBody = 10
+			minBodyID = ct.getMinUpdate(rects,min,prevRowCentroid,prevColCentroid)
+			if minBodyID[0] != "ERROR":# prevID == minBodyID[0] or wasPrevID <= 0:
+				prevID = minBodyID[0]
+				OGStartX = minBodyID[1]
+				OGEndX = minBodyID[3]
+				OGStartY = minBodyID[2]
+				OGEndY = minBodyID[4]
+				#print(minBodyID)
+				for i in range(0, detections2.shape[2]):
+					# extract the confidence (i.e., probability) associated with the
+					# prediction
+					confidence = detections2[0, 0, i, 2]
+
+					# filter out weak detections by ensuring the `confidence` is
+					# greater than the minimum confidence
+					if confidence < args["confidence"]:
+						continue
+
+					# compute the (x, y)-coordinates of the bounding box for the
+					# object
+					box = detections2[0, 0, i, 3:7] * np.array([w, h, w, h])
+					(startX, startY, endX, endY) = box.astype("int")
+
+					# draw the bounding box of the face along with the associated
+					# probability
+					text = "{:.2f}%".format(confidence * 100)
+					y = startY - 10 if startY - 10 > 10 else startY + 10
+					cv2.rectangle(frame, (startX, startY), (endX, endY),
+						(0, 0, 255), 2)
+					cv2.putText(frame, text, (startX, y),
+						cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 2)
+					if  min == minBodyID[0] and startX > minBodyID[1] and endX < minBodyID[3] and startY+50 > minBodyID[2] and endY < minBodyID[4]:
+					#	print("inside")
+						if blink != "OFF":
+							#print("2")
+							blink = "OFF"
+							SendCommand(myssh, command=('python ~/blink.py OFF'))
+						wasFace = 10
+						#print("false2")
+						flag = False
+			'''elif prevID != minBodyID[0]:
+				wasPrevID -= 1'''
+		else:
+			#print("False1")
+			flag = False
+			if blink != "OFF" and wasBody <= 0:
+				#print("3")
+				blink = "OFF"
+				SendCommand(myssh, command=('python ~/blink.py OFF'))
+			elif wasBody > 0:
+				wasBody -= 1
+
+
+
+		if flag and wasFace <= 0:
+			if blink != "ON":
+				#print("4")
+				blink = "ON"
+				SendCommand(myssh, command=('python ~/blink.py ON'))
+			#print(str(OGStartX)+" =|= "+str(OGEndX))
+			xDist = 90 + ((400 - (OGStartX+OGEndX)/2.0)*30.5/400)
+
+			#xDist =
+			if abs(xDist - prev) > 3:
+				prev = xDist
 				SendCommand(myssh, command=('python ~/servomotor.py '+str(xDist)))
-
-	min = 999999999999
-	# update our centroid tracker using the computed set of bounding
-	# box rectangles
-	objects = ct.update(rects)
-
-	# loop over the tracked objects
-	for (objectID, centroid) in objects.items():
-		#print(objectID)
-		if objectID < min:
-			min = objectID
-		# draw both the ID of the object and the centroid of the
-		# object on the output frame
-		text = "ID {}".format(objectID)
-		cv2.putText(frame, text, (centroid[0] - 10, centroid[1] - 10),
-			cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-		#print("CENT::"+str(centroid[0])+":"+str(centroid[1])+"-"+str(objectID))
-		cv2.circle(frame, (centroid[0], centroid[1]), 4, (0, 255, 0), -1)
+		elif wasFace > 0:
+			wasFace -= 1
 
 
 
 	# show the output frame
+	#print(frame)
 	cv2.imshow("Frame", frame)
 	key = cv2.waitKey(1) & 0xFF
 
@@ -251,6 +296,7 @@ while True:
 		break
 
 	# update the FPS counter
+	totalFrames += 1
 	fps.update()
 
 # stop the timer and display FPS information
