@@ -1,1 +1,2 @@
-py real_time_object_detection.py --prototxt MobileNetSSD_deploy.prototxt.txt --model MobileNetSSD_deploy.caffemodel --prototxt2 deploy.prototxt.txt --model2 res10_300x300_ssd_iter_140000.caffemodel --source edison
+py real_time_object_detection.py --"IP Address" --source edison
+py mouseclick.py --"IP Address" --source edison
