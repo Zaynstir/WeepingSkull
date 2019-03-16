@@ -122,7 +122,9 @@ while True:
 	# grab the frame from the threaded video stream and resize it
 	# to have a maximum width of 400 pixels
 	frame = vs.read()
-	print(frame)
+	if frame == "None":
+		print("DIED")
+	print("THING::"+str(frame))
 	frame = imutils.resize(frame, width=800)
 	if totalFrames % args["skip_frames"] == 0:
 		#if W is None or H is None:
@@ -179,13 +181,8 @@ while True:
 				box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
 				rects.append(box.astype("int"))
 				(startX, startY, endX, endY) = box.astype("int")
-				#print("TX:"+str(targetX)+"-TY:"+str(targetY))
-				# draw the prediction on the frame
-				#label = "{}: {:.2f}%".format(CLASSES[idx],
-					#confidence * 100)
 				cv2.rectangle(frame, (startX, startY), (endX, endY),
 					(0, 255, 0), 2)
-				#print(str(startX)+", "+ str(startY)+", "+ str(endX)+","+ str(endY))
 
 		# update our centroid tracker using the computed set of bounding
 		# box rectangles
@@ -207,7 +204,6 @@ while True:
 			text = "ID {}".format(objectID)
 			cv2.putText(frame, text, (centroid[0] - 10, centroid[1] - 10),
 				cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-			#print("CENT::"+str(centroid[0])+":"+str(centroid[1])+"-"+str(objectID))
 			cv2.circle(frame, (centroid[0], centroid[1]), 4, (0, 255, 0), -1)
 
 
@@ -216,13 +212,12 @@ while True:
 		if min != 999999999999 and len(rects) > 0:
 			wasBody = 10
 			minBodyID = ct.getMinUpdate(rects,min,prevRowCentroid,prevColCentroid)
-			if minBodyID[0] != "ERROR":# prevID == minBodyID[0] or wasPrevID <= 0:
+			if minBodyID[0] != "ERROR":
 				prevID = minBodyID[0]
 				OGStartX = minBodyID[1]
 				OGEndX = minBodyID[3]
 				OGStartY = minBodyID[2]
 				OGEndY = minBodyID[4]
-				#print(minBodyID)
 				for i in range(0, detections2.shape[2]):
 					# extract the confidence (i.e., probability) associated with the
 					# prediction
@@ -247,21 +242,16 @@ while True:
 					cv2.putText(frame, text, (startX, y),
 						cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 2)
 					if  min == minBodyID[0] and startX > minBodyID[1] and endX < minBodyID[3] and startY+50 > minBodyID[2] and endY < minBodyID[4]:
-					#	print("inside")
 						if blink != "OFF":
-							#print("2")
 							blink = "OFF"
 							SendCommand(myssh, command=('python ~/blink.py OFF'))
 						wasFace = 10
-						#print("false2")
 						flag = False
 			'''elif prevID != minBodyID[0]:
 				wasPrevID -= 1'''
 		else:
-			#print("False1")
 			flag = False
 			if blink != "OFF" and wasBody <= 0:
-				#print("3")
 				blink = "OFF"
 				SendCommand(myssh, command=('python ~/blink.py OFF'))
 			elif wasBody > 0:
@@ -271,13 +261,9 @@ while True:
 
 		if flag and wasFace <= 0:
 			if blink != "ON":
-				#print("4")
 				blink = "ON"
 				SendCommand(myssh, command=('python ~/blink.py ON'))
-			#print(str(OGStartX)+" =|= "+str(OGEndX))
 			xDist = 90 + ((400 - (OGStartX+OGEndX)/2.0)*30.5/400)
-
-			#xDist =
 			if abs(xDist - prev) > 3:
 				prev = xDist
 				SendCommand(myssh, command=('python ~/servomotor.py '+str(xDist)))
@@ -287,7 +273,6 @@ while True:
 
 
 	# show the output frame
-	#print(frame)
 	cv2.imshow("Frame", frame)
 	key = cv2.waitKey(1) & 0xFF
 

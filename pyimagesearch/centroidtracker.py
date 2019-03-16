@@ -36,14 +36,16 @@ class CentroidTracker():
 		del self.objects[objectID]
 		del self.disappeared[objectID]
 
-	def getMinUpdate(self, rects, min):
+	def getMinUpdate(self, rects, min,prevRow,prevCol):
 		inputCentroids = np.zeros((len(rects), 2), dtype="int")
+		coordRay = []
 		# loop over the bounding box rectangles
 		for (i, (startX, startY, endX, endY)) in enumerate(rects):
 			# use the bounding box coordinates to derive the centroid
 			cX = int((startX + endX) / 2.0)
 			cY = int((startY + endY) / 2.0)
 			inputCentroids[i] = (cX, cY)
+			coordRay.append([startX,startY,endX,endY])
 		# grab the set of object IDs and corresponding centroids
 		objectIDs = list(self.objects.keys())
 		objectCentroids = list(self.objects.values())
@@ -89,9 +91,13 @@ class CentroidTracker():
 			minID = objectID
 			minRow = inputCentroids[0][0]
 			minCol = inputCentroids[0][1]
-			if minID == min:
-				return [minID, minRow, minCol]
-		return ["ERROR",str(min),str(minID)+" | "+str(minRow)+" | "+str(minCol)]
+			#print(objectIDs)
+			if minID == min and minRow == prevRow and minCol == prevCol:
+				for i in coordRay:
+					if int((i[0]+i[2])/2.0) == minRow and int((i[1]+i[3])/2.0) == minCol:
+						#print("YEP")
+						return [minID,i[0],i[1],i[2],i[3]]
+		return ["ERROR",str(min),str(minID),str(minRow),str(minCol)]
 
 	def update(self, rects):
 		# check to see if the list of input bounding box rectangles
