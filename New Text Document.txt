@@ -1,2 +1,0 @@
-py real_time_object_detection.py --"IP Address" --source edison
-py mouseclick.py --"IP Address" --source edison
