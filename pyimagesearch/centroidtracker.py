@@ -1,3 +1,11 @@
+'''
+Author: Adrian Rosebrock
+Projects: Simple-Object-Tracking : https://www.pyimagesearch.com/2018/07/23/simple-object-tracking-with-opencv/?__s=zsmw7ek8fkeso4iokqco
+Modifier: Zayin Brunson
+Purpose: Tracks all positions of objects.
+NOTE: Most of the comments are not mine, Adrian does a pretty good job at explaining stuff, so I will only comment my stuff.
+'''
+
 # import the necessary packages
 from scipy.spatial import distance as dist
 from collections import OrderedDict
@@ -36,6 +44,7 @@ class CentroidTracker():
 		del self.objects[objectID]
 		del self.disappeared[objectID]
 
+	#This returns the data of the existing object with lowest Unique ID
 	def getMinUpdate(self, rects, min,prevRow,prevCol):
 		inputCentroids = np.zeros((len(rects), 2), dtype="int")
 		coordRay = []
@@ -49,12 +58,12 @@ class CentroidTracker():
 		# grab the set of object IDs and corresponding centroids
 		objectIDs = list(self.objects.keys())
 		objectCentroids = list(self.objects.values())
-		#print(str(objectIDs)+"-"+str(objectCentroids))
+
 		# compute the distance between each pair of object
 		# centroids and input centroids, respectively -- our
 		# goal will be to match an input centroid to an existing
 		# object centroid
-		#print(str(dist.cdist(np.array(objectCentroids), inputCentroids)))
+
 		D = dist.cdist(np.array(objectCentroids), inputCentroids)
 
 		# in order to perform this matching we must (1) find the
@@ -91,13 +100,13 @@ class CentroidTracker():
 			minID = objectID
 			minRow = inputCentroids[0][0]
 			minCol = inputCentroids[0][1]
-			#print(objectIDs)
+
+			#find the centroids and see if the new centroid is inline with the old centroid
 			if minID == min and minRow == prevRow and minCol == prevCol:
 				for i in coordRay:
 					if int((i[0]+i[2])/2.0) == minRow and int((i[1]+i[3])/2.0) == minCol:
-						#print("YEP")
 						return [minID,i[0],i[1],i[2],i[3]]
-		return ["ERROR",str(min),str(minID),str(minRow),str(minCol)]
+		return ["ERROR",str(min),str(minID),str(minRow),str(minCol)] #Error and some debugging stuff
 
 	def update(self, rects):
 		# check to see if the list of input bounding box rectangles
@@ -181,7 +190,6 @@ class CentroidTracker():
 				minID = objectID
 				minRow = inputCentroids[0][0]
 				minCol = inputCentroids[0][1]
-				#print(str(objectID)+"-"+str(inputCentroids[row][0])+'-'+str(inputCentroids[row][1]))
 				self.objects[objectID] = inputCentroids[col]
 				self.disappeared[objectID] = 0
 
