@@ -1,6 +1,7 @@
 # WeepingSkull
-Motion Tracking Skull that follows you on a servo motor when you aren't looking at it.
-
-This project required the use of a raspberry pi 3 sending commands to a servo motor that was attached to a prop skull.
-
-Notice: I did not create the majority of this project. I took several projects that Adrian Rosebrock created and mashed them together along with modifying/re-writing to fit the needs that I wanted to do with this project.
+Author: Adrian Rosebrock
+Projects Combined:
+	- Simple-Object-Tracking : https://www.pyimagesearch.com/2018/07/23/simple-object-tracking-with-opencv/?__s=zsmw7ek8fkeso4iokqco
+	- Real-Time-Object-Detection : https://www.pyimagesearch.com/2017/10/16/raspberry-pi-deep-learning-object-detection-with-opencv/
+Combiner and Modifier: Zayin Brunson
+Purpose: Think of weeping angels from video games, and this is the same but with a skull head. It follows a person, and lights up its eyes, whenever it does not recognize a face.
