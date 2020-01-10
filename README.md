@@ -7,4 +7,4 @@ Projects Combined:
 
 Combiner and Modifier: Zayin Brunson
 
-Purpose: Think of weeping angels from video games, and this is the same but with a skull head. It follows a person, and lights up its eyes, whenever it does not recognize a face.
+Purpose: It was a fun side project aside from school work. it's only purpose was to be creepy to those who walked by. It would use PyImageSearch motion tracking to analyze video feed picked up by a raspberry pi camera module and then rotate a server motor with a halloween prop skull connected to it to simulate the skull watching people as they walked by. It would stop following a person if the person looked at it. The skull acts as a weeping angel from a variety of Sci-Fi movie and video games. In short, the skull will follow a person as long as it cannot recognize a face from that person.
